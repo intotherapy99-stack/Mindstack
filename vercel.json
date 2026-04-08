@@ -1,0 +1,20 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/reminders-24h",
+      "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/cron/reminders-2h",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/process-payouts",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/reveal-reviews",
+      "schedule": "0 */6 * * *"
+    }
+  ]
+}

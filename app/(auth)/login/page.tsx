@@ -1,0 +1,314 @@
+"use client";
+
+import React, { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { signIn } from "next-auth/react";
+import { loginSchema, type LoginInput } from "@/lib/validations";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { IllustrationTherapist, IllustrationMeditation } from "@/components/illustrations";
+import { FaceCurlyWoman, FaceBeardMan, FaceBobWoman, FaceHijabWoman, FaceSpikyMan, FaceElderGlasses } from "@/components/inclusive-illustrations";
+import { Brain, Heart, Shield, Eye, EyeOff, Loader2, Stethoscope, User } from "lucide-react";
+
+type UserMode = "professional" | "client";
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [mode, setMode] = useState<UserMode>("professional");
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginInput>({
+    resolver: zodResolver(loginSchema),
+  });
+
+  async function onSubmit(data: LoginInput) {
+    setLoading(true);
+    setError("");
+
+    const result = await signIn("credentials", {
+      email: data.email,
+      password: data.password,
+      redirect: false,
+    });
+
+    if (result?.error) {
+      setError("Invalid email or password");
+      setLoading(false);
+      return;
+    }
+
+    // Fetch session to check userType for routing
+    const sessionRes = await fetch("/api/auth/session");
+    const session = await sessionRes.json();
+    const userType = session?.user?.userType;
+
+    if (userType === "CLIENT") {
+      router.push("/my-care");
+    } else {
+      router.push("/dashboard");
+    }
+  }
+
+  const isPro = mode === "professional";
+
+  const trustPills = isPro
+    ? [
+        { icon: Brain, text: "Structured supervision tracking" },
+        { icon: Heart, text: "Built for therapists" },
+        { icon: Shield, text: "DPDP compliant" },
+      ]
+    : [
+        { icon: Heart, text: "Find the right therapist" },
+        { icon: Shield, text: "Your data stays private" },
+        { icon: Brain, text: "Track your wellness journey" },
+      ];
+
+  return (
+    <div className="min-h-screen flex flex-col md:flex-row">
+      {/* Left panel — brand + illustration (desktop only) */}
+      <div className="hidden md:flex md:w-[50%] lg:w-[55%] bg-warm-gradient relative overflow-hidden p-8 lg:p-12 xl:p-16 flex-col justify-between">
+        {/* Decorative blurred shapes */}
+        <div className="absolute top-[-60px] right-[-60px] w-[280px] h-[280px] rounded-full bg-primary-300/20 blur-3xl" />
+        <div className="absolute bottom-[-80px] left-[-40px] w-[320px] h-[320px] rounded-full bg-accent-300/15 blur-3xl" />
+        <div className="absolute top-[30%] left-[20%] w-[200px] h-[200px] rounded-full bg-purple-200/20 blur-2xl" />
+
+        <div className="relative z-10">
+          {/* Logo */}
+          <div className="flex items-center gap-3 mb-10 lg:mb-14">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-b from-primary to-primary-dim flex items-center justify-center shadow-card">
+              <span className="text-white font-heading font-bold text-xl">M</span>
+            </div>
+            <span className="font-heading font-bold text-2xl" style={{ color: "#2a3434" }}>
+              MindStack
+            </span>
+          </div>
+
+          {/* Illustration */}
+          <div className="flex justify-center mb-10 lg:mb-12">
+            <div className="animate-float">
+              {isPro ? (
+                <IllustrationTherapist className="drop-shadow-lg" width={280} height={280} />
+              ) : (
+                <IllustrationMeditation className="drop-shadow-lg" width={280} height={280} />
+              )}
+            </div>
+          </div>
+
+          {/* Trust signal pills */}
+          <div className="flex flex-wrap gap-2.5 mb-8">
+            {trustPills.map(({ icon: Icon, text }) => (
+              <div
+                key={text}
+                className="flex items-center gap-2 bg-white/70 backdrop-blur-sm rounded-full px-4 py-2 shadow-card"
+              >
+                <Icon size={14} className="text-primary-600 shrink-0" />
+                <span className="text-neutral-700 text-xs font-medium">{text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Social proof with diverse faces */}
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="flex -space-x-1.5">
+            {[FaceCurlyWoman, FaceBeardMan, FaceBobWoman, FaceHijabWoman, FaceSpikyMan].map((Face, i) => (
+              <div
+                key={i}
+                className="w-9 h-9 rounded-full bg-white/80 border-2 border-white flex items-center justify-center shadow-sm overflow-hidden"
+                style={{ zIndex: 5 - i }}
+              >
+                <Face width={36} height={36} />
+              </div>
+            ))}
+          </div>
+          <p className="text-neutral-600 text-sm font-medium">
+            {isPro
+              ? <>Trusted by <span className="text-neutral-800 font-semibold">500+</span> professionals</>
+              : <>Join <span className="text-neutral-800 font-semibold">2,000+</span> people on their wellness journey</>
+            }
+          </p>
+        </div>
+      </div>
+
+      {/* Right panel — login form */}
+      <div className="flex-1 flex items-center justify-center p-6 md:p-8 lg:p-12 min-h-screen md:min-h-0" style={{ background: "#ffffff" }}>
+        <div className="w-full max-w-[400px]">
+          {/* Mobile header */}
+          <div className="md:hidden mb-6">
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-primary-500 flex items-center justify-center shadow-sm">
+                <span className="text-white font-heading font-bold text-lg">M</span>
+              </div>
+              <span className="font-heading font-bold text-xl text-neutral-900">
+                MindStack
+              </span>
+            </div>
+          </div>
+
+          {/* User Type Toggle */}
+          <div className="flex rounded-2xl p-1 mb-6" style={{ background: "#eef5f4" }}>
+            <button
+              type="button"
+              onClick={() => setMode("professional")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 min-h-[44px] ${
+                isPro
+                  ? "bg-surface-container-lowest shadow-card"
+                  : "text-on-surface-variant hover:text-on-surface"
+              }`}
+              style={isPro ? { color: "#2a3434" } : undefined}
+            >
+              <Stethoscope size={16} />
+              Professional
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("client")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 min-h-[44px] ${
+                !isPro
+                  ? "bg-surface-container-lowest shadow-card"
+                  : "text-on-surface-variant hover:text-on-surface"
+              }`}
+              style={!isPro ? { color: "#2a3434" } : undefined}
+            >
+              <User size={16} />
+              Client
+            </button>
+          </div>
+
+          {/* Heading */}
+          <h2 className="font-heading text-2xl lg:text-[28px] font-bold text-neutral-900 mb-1.5">
+            Welcome back 👋
+          </h2>
+          <p className="text-neutral-500 mb-7 text-[15px]">
+            {isPro
+              ? "Sign in to your practice dashboard"
+              : "Sign in to your wellness portal"
+            }
+          </p>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            <div>
+              <Label htmlFor="email" className="text-[13px]">
+                Email address
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                autoComplete="email"
+                aria-label="Email address"
+                {...register("email")}
+                className="mt-1.5 h-12 transition-shadow duration-200 focus:shadow-md"
+              />
+              {errors.email && (
+                <p className="text-error text-xs mt-1.5">{errors.email.message}</p>
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-[13px]">
+                  Password
+                </Label>
+                <Link
+                  href="/forgot-password"
+                  className="text-xs text-primary-500 hover:text-primary-600 hover:underline transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+              <div className="relative mt-1.5">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  aria-label="Password"
+                  {...register("password")}
+                  className="h-12 pr-11 transition-shadow duration-200 focus:shadow-md"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors p-1"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="text-error text-xs mt-1.5">
+                  {errors.password.message}
+                </p>
+              )}
+            </div>
+
+            {/* Error message */}
+            {error && (
+              <div className="text-error text-sm rounded-xl p-3.5 flex items-center gap-2.5 animate-error-fade" style={{ background: "rgba(250,116,111,0.12)" }}>
+                <div className="w-2 h-2 bg-error rounded-full shrink-0 animate-soft-pulse" />
+                {error}
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              className="w-full h-12 text-[15px] font-semibold shadow-sm hover:shadow-md transition-all duration-200"
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 size={18} className="animate-spin" />
+                  Signing in...
+                </span>
+              ) : (
+                "Sign in"
+              )}
+            </Button>
+          </form>
+
+          {/* Divider */}
+          <div className="relative my-7">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full h-px" style={{ background: "#e8efee" }} />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="px-4" style={{ background: "#ffffff", color: "#6f7978" }}>or</span>
+            </div>
+          </div>
+
+          {/* Secondary CTA */}
+          <Link href={`/signup?mode=${mode}`} className="block">
+            <Button variant="secondary" className="w-full h-12 font-medium">
+              Create account
+            </Button>
+          </Link>
+
+          {/* Footer */}
+          <p className="text-center text-[11px] text-neutral-400 mt-6 leading-relaxed">
+            By signing in you agree to our{" "}
+            <Link href="/terms" className="underline hover:text-neutral-600 transition-colors">
+              Terms
+            </Link>{" "}
+            &amp;{" "}
+            <Link href="/privacy" className="underline hover:text-neutral-600 transition-colors">
+              Privacy Policy
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

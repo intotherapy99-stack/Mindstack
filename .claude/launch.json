@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Next.js Dev Server",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["-c", "source ~/.nvm/nvm.sh && cd /Users/parth/Downloads/mindstack && npx next dev -p $PORT"],
+      "port": 3000
+    }
+  ]
+}

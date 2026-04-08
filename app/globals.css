@@ -1,0 +1,454 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@layer base {
+  body {
+    @apply font-body antialiased;
+    color: #2a3434;
+    background: #f6fafa;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+  /* Mobile tap highlight — tinted teal */
+  * {
+    -webkit-tap-highlight-color: rgba(0, 106, 108, 0.08);
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+/* Sparkle animation for verification badge */
+@keyframes sparkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.15); }
+}
+.animate-sparkle {
+  animation: sparkle 1.5s ease-in-out 3;
+}
+
+/* Gentle float for illustrations & doodles (4-8px Y-axis per DESIGN.md) */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* Slower float for subtle elements */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(1.5deg); }
+}
+.animate-float-slow {
+  animation: float-slow 6s ease-in-out infinite;
+}
+
+/* Breathing animation for mindfulness elements */
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+.animate-breathe {
+  animation: breathe 5s ease-in-out infinite;
+}
+
+/* Soft pulse for live indicators */
+@keyframes soft-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.animate-soft-pulse {
+  animation: soft-pulse 2s ease-in-out infinite;
+}
+
+/* Confetti burst (used on verification / success) */
+@keyframes confetti-pop {
+  0% { transform: scale(0) rotate(0); opacity: 1; }
+  100% { transform: scale(1.2) rotate(360deg); opacity: 0; }
+}
+.animate-confetti {
+  animation: confetti-pop 0.8s ease-out forwards;
+}
+
+/* Bounce in animation for modals/cards */
+@keyframes bounce-in {
+  0% { transform: scale(0.95); opacity: 0; }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-bounce-in {
+  animation: bounce-in 0.3s ease-out;
+}
+
+/* Slide up for toasts and notifications */
+@keyframes slide-up {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* Slide in from right for mobile panels */
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
+/* Soft color transition for errors — NO shake per DESIGN.md */
+@keyframes error-fade {
+  0% { background-color: transparent; }
+  100% { background-color: rgba(250, 116, 111, 0.12); }
+}
+.animate-error-fade {
+  animation: error-fade 0.4s ease-out forwards;
+}
+
+/* Legacy shake kept for backwards compat but discouraged */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
+.animate-shake {
+  animation: error-fade 0.4s ease-out forwards;
+}
+
+/* Progress bar shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Scale in for icon badges */
+@keyframes scale-in {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}
+
+/* Soft hover pulse for buttons (scale 1.02 per DESIGN.md) */
+@keyframes soft-hover-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+/* ============================================
+   SURFACE & BACKGROUNDS (DESIGN.md Tonal Layering)
+   ============================================ */
+
+/* Base surface — never pure white for large areas */
+.bg-surface {
+  background: #f6fafa;
+}
+
+/* Warm multi-color gradient for onboarding and auth backgrounds */
+.bg-warm-gradient {
+  background: linear-gradient(135deg, #eef5f4 0%, #FFF1EE 50%, #EDE9FE 100%);
+}
+
+/* Hero gradient — primary to primary-container glow */
+.bg-hero-gradient {
+  background: linear-gradient(135deg, #006a6c 0%, #005052 40%, #004042 100%);
+}
+
+/* Mesh gradient for premium/special areas */
+.bg-mesh-gradient {
+  background:
+    radial-gradient(at 40% 20%, rgba(0, 106, 108, 0.06) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, rgba(139, 92, 246, 0.05) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, rgba(255, 90, 66, 0.04) 0px, transparent 50%),
+    #f6fafa;
+}
+
+/* ── Glassmorphism (DESIGN.md: 70% opacity + 20px blur) ── */
+.glass {
+  background: rgba(255, 255, 255, 0.70);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Stronger glass for nav overlays */
+.glass-heavy {
+  background: rgba(246, 250, 250, 0.80);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+/* ============================================
+   INTERACTIVE EFFECTS
+   ============================================ */
+
+/* Card hover lift — ambient long shadows (DESIGN.md: 30-40px blur, 4-6% opacity) */
+.card-lift {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 36px rgba(42, 52, 52, 0.06);
+}
+
+/* Card press effect for mobile */
+.card-press:active {
+  transform: scale(0.98);
+  transition: transform 0.1s ease;
+}
+
+/* Supervision purple glow */
+.supervision-glow {
+  box-shadow: 0 0 24px rgba(139, 92, 246, 0.12);
+}
+
+/* Teal glow for primary actions */
+.teal-glow {
+  box-shadow: 0 0 24px rgba(0, 106, 108, 0.12);
+}
+
+/* Smooth page transitions */
+.page-enter {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Indian Rupee symbol styling */
+.rupee::before {
+  content: '₹';
+}
+
+/* Custom selection color — calming teal */
+::selection {
+  background: rgba(0, 106, 108, 0.12);
+  color: #002020;
+}
+
+/* ============================================
+   MOBILE-SPECIFIC
+   ============================================ */
+
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .mobile-nav-safe {
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  }
+}
+
+.touch-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.touch-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.tap-feedback:active {
+  transform: scale(0.96);
+  transition: transform 0.1s ease;
+}
+
+/* ============================================
+   COMPONENT PATTERNS
+   ============================================ */
+
+/* Pill button (used for specialization tags) — no border per DESIGN.md */
+.pill-button {
+  @apply inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer select-none;
+  background: #eef5f4;
+  color: #2a3434;
+}
+.pill-button:active {
+  transform: scale(0.95);
+}
+
+/* Stat card number */
+.stat-number {
+  @apply text-2xl md:text-3xl font-bold tabular-nums;
+  color: #2a3434;
+}
+
+/* Section header pattern */
+.section-header {
+  @apply flex items-center gap-2 mb-6;
+}
+.section-header-icon {
+  @apply w-9 h-9 rounded-xl flex items-center justify-center;
+}
+
+/* Empty state pattern */
+.empty-state {
+  @apply text-center py-16 page-enter;
+}
+.empty-state-icon {
+  @apply w-24 h-24 rounded-2xl flex items-center justify-center mx-auto mb-5;
+}
+
+/* Focus glow (DESIGN.md: 2px glow using primary-fixed at 50% opacity) */
+@keyframes focus-glow {
+  0% { box-shadow: 0 0 0 0 rgba(118, 230, 232, 0.5); }
+  100% { box-shadow: 0 0 0 3px rgba(118, 230, 232, 0); }
+}
+
+/* Loading skeleton with shimmer */
+.skeleton {
+  border-radius: 12px;
+  background: linear-gradient(90deg, #eef5f4 25%, #e3eae8 50%, #eef5f4 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ============================================
+   ACCESSIBILITY
+   ============================================ */
+
+/* Focus-visible — glow instead of hard outline per DESIGN.md */
+*:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(118, 230, 232, 0.5);
+  border-radius: 8px;
+}
+
+/* ============================================
+   TOUCH DEVICE FIXES
+   ============================================ */
+
+@media (hover: none) {
+  .card-lift:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* ============================================
+   ENHANCED TABLE & LIST STYLES (No-Line Rule)
+   ============================================ */
+
+/* Striped table rows — tonal shift instead of borders */
+.table-striped tbody tr:nth-child(even) {
+  background: #eef5f4;
+}
+
+/* Gradient accent for active/selected cards */
+.card-accent {
+  position: relative;
+}
+.card-accent::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, #006a6c, #76e6e8);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.card-accent:hover::before {
+  opacity: 1;
+}
+
+/* Gradient underline for active tabs */
+.tab-gradient-underline {
+  position: relative;
+}
+.tab-gradient-underline::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #006a6c, #8B5CF6);
+  border-radius: 2px 2px 0 0;
+}
+
+/* Smooth number counters */
+.count-up {
+  font-variant-numeric: tabular-nums;
+  transition: all 0.3s ease-out;
+}
+
+/* Badge pulse for new items */
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 106, 108, 0.35); }
+  50% { box-shadow: 0 0 0 6px rgba(0, 106, 108, 0); }
+}
+.badge-new {
+  animation: badge-pulse 2s ease-in-out 3;
+}
+
+/* Stagger children animation */
+.stagger-children > * {
+  animation: fadeIn 0.3s ease backwards;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 350ms; }
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ============================================
+   DARK MODE
+   ============================================ */
+
+.dark {
+  --color-bg-primary: #0F1215;
+  --color-bg-secondary: #1A1D23;
+  --color-bg-tertiary: #242830;
+  --color-bg-elevated: #2A2E37;
+  --color-text-primary: #F0F0F2;
+  --color-text-secondary: #A0A4AD;
+  --color-text-muted: #6B7080;
+  --color-border: #2E3340;
+  --color-border-hover: #3D4250;
+  --color-teal: #00B4B8;
+  --color-teal-hover: #00CDD1;
+  --color-purple: #A78BFA;
+  --color-coral: #FF7A5C;
+}

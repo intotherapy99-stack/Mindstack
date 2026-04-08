@@ -1,0 +1,673 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// USERS & PROFILES
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  phone             String?   @unique
+  passwordHash      String
+  emailVerified     DateTime?
+  phoneVerified     DateTime?
+  role              String    @default("USER") // USER or ADMIN
+  userType          UserType  @default(PROFESSIONAL)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  failedLoginAttempts Int       @default(0)
+  lockedUntil       DateTime?
+
+  profile           Profile?
+  clientProfile     ClientProfile?
+  sessionsAsSupervisee  SupervisionSession[] @relation("Supervisee")
+  sessionsAsSupervisor  SupervisionSession[] @relation("Supervisor")
+  appointments      Appointment[]
+  clients           Client[]
+  notes             Note[]
+  payments          Payment[]
+  invoices          Invoice[]
+  prescriptions     Prescription[]
+  reviewsGiven      Review[]   @relation("Reviewer")
+  reviewsReceived   Review[]   @relation("Reviewed")
+  availability      Availability[]
+  subscription      Subscription?
+  notifications     Notification[]
+
+  // Community
+  referralPosts     ReferralPost[]
+  referralResponses ReferralResponse[]
+  spacePosts        SpacePost[]
+  comments          Comment[]
+  spaceMemberships  SpaceMembership[]
+}
+
+enum UserType {
+  PROFESSIONAL
+  CLIENT
+}
+
+model Profile {
+  id                  String    @id @default(cuid())
+  userId              String    @unique
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  displayName         String
+  slug                String    @unique
+  avatarUrl           String?
+  bio                 String?   @db.Text
+  city                String
+  state               String
+  yearsExperience     Int?
+
+  role                ProfessionalRole
+  specializations     String[]
+  modalities          String[]
+  languages           String[]
+
+  rciNumber           String?
+  nmcNumber           String?
+  credentialDoc       String?
+  verificationStatus  VerificationStatus @default(UNVERIFIED)
+  verifiedAt          DateTime?
+
+  offersSupervision   Boolean   @default(false)
+  supervisionFee      Int?
+  supervisionModality SupervisionModality?
+  supervisionApproach String?
+  supervisionBio      String?   @db.Text
+  maxSuperviseesCount Int?      @default(5)
+
+  sessionDuration     Int       @default(50)
+  sessionFee          Int?
+  bookingPageEnabled  Boolean   @default(true)
+  bufferTime          Int       @default(10)
+
+  isPublic            Boolean   @default(true)
+}
+
+enum ProfessionalRole {
+  PSYCHIATRIST
+  CLINICAL_PSYCHOLOGIST
+  COUNSELOR
+  THERAPIST
+  STUDENT_TRAINEE
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum SupervisionModality {
+  ONLINE
+  IN_PERSON
+  HYBRID
+}
+
+// SUPERVISION
+
+model SupervisionSession {
+  id              String    @id @default(cuid())
+  superviseeId    String
+  supervisee      User      @relation("Supervisee", fields: [superviseeId], references: [id])
+  supervisorId    String
+  supervisor      User      @relation("Supervisor", fields: [supervisorId], references: [id])
+
+  scheduledAt     DateTime
+  duration        Int
+  sessionType     SessionType @default(INDIVIDUAL)
+  modality        SupervisionModality
+
+  status          BookingStatus @default(PENDING)
+  meetingLink     String?
+  cancelReason    String?
+  cancelledAt     DateTime?
+
+  logCompleted    Boolean   @default(false)
+  casePresented   String?   @db.Text
+  topicsCovered   String[]
+  superviseeGoals String?   @db.Text
+  supervisorNotes String?   @db.Text
+  superviseeNotes String?   @db.Text
+
+  amountCharged   Int
+  platformFee     Int
+  razorpayOrderId String?
+  razorpayPaymentId String?
+  paidAt          DateTime?
+  supervisorPaidOut Boolean @default(false)
+  payoutAt        DateTime?
+
+  review          Review?
+  createdAt       DateTime  @default(now())
+}
+
+enum SessionType {
+  INDIVIDUAL
+  GROUP
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+// PRACTICE MANAGEMENT
+
+model Client {
+  id              String    @id @default(cuid())
+  practitionerId  String
+  practitioner    User      @relation(fields: [practitionerId], references: [id])
+
+  firstName       String
+  lastName        String?
+  email           String?
+  phone           String?
+  dateOfBirth     DateTime?
+  gender          String?
+  occupation      String?
+
+  presentingConcern String?  @db.Text
+  referralSource  String?
+  status          ClientStatus @default(ACTIVE)
+  notes           String?   @db.Text
+
+  // Billing: per-client session fee (overrides practitioner default)
+  sessionFee        Int?      // If null, uses practitioner's profile.sessionFee
+  sessionsPerMonth  Int?      // Expected sessions per month (e.g. 4)
+
+  appointments    Appointment[]
+  sessionNotes    Note[]
+  payments        Payment[]
+  invoices        Invoice[]
+  prescriptions   Prescription[]
+  portalTokens    ClientPortalToken[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  ON_HOLD
+  DISCHARGED
+}
+
+model Appointment {
+  id              String    @id @default(cuid())
+  practitionerId  String
+  practitioner    User      @relation(fields: [practitionerId], references: [id])
+  clientId        String?
+  client          Client?   @relation(fields: [clientId], references: [id])
+
+  scheduledAt     DateTime
+  duration        Int       @default(50)
+  sessionType     AppointmentType @default(FOLLOW_UP)
+  modality        AppointmentModality @default(IN_PERSON)
+  meetingLink     String?
+
+  status          BookingStatus @default(CONFIRMED)
+  noShow          Boolean   @default(false)
+  cancelReason    String?
+
+  fee             Int?
+  note            Note?
+  payment         Payment?  // Auto-generated payment for this session
+
+  reminderSent24h Boolean   @default(false)
+  reminderSent2h  Boolean   @default(false)
+
+  createdAt       DateTime  @default(now())
+}
+
+enum AppointmentType {
+  INITIAL_CONSULTATION
+  FOLLOW_UP
+  CRISIS
+  ASSESSMENT
+  DISCHARGE
+  OTHER
+}
+
+enum AppointmentModality {
+  IN_PERSON
+  ONLINE
+  PHONE
+}
+
+model Note {
+  id              String    @id @default(cuid())
+  practitionerId  String
+  practitioner    User      @relation(fields: [practitionerId], references: [id])
+  clientId        String?
+  client          Client?   @relation(fields: [clientId], references: [id])
+  appointmentId   String?   @unique
+  appointment     Appointment? @relation(fields: [appointmentId], references: [id])
+
+  template        NoteTemplate @default(SOAP)
+  content         Json
+  tags            String[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+enum NoteTemplate {
+  SOAP
+  DAP
+  FREE_TEXT
+}
+
+model Payment {
+  id              String    @id @default(cuid())
+  practitionerId  String
+  practitioner    User      @relation(fields: [practitionerId], references: [id])
+  clientId        String?
+  client          Client?   @relation(fields: [clientId], references: [id])
+  appointmentId   String?   @unique
+  appointment     Appointment? @relation(fields: [appointmentId], references: [id])
+  invoiceId       String?
+  invoice         Invoice?  @relation(fields: [invoiceId], references: [id])
+
+  amount          Int
+  method          PaymentMethod @default(OTHER)
+  sessionDate     DateTime?
+  description     String?
+  status          PaymentStatus @default(RECEIVED)
+  dueDate         DateTime?     // When payment is expected by
+
+  paidAt          DateTime?     // When payment was actually received
+  invoiceUrl      String?
+
+  createdAt       DateTime  @default(now())
+}
+
+enum PaymentMethod {
+  UPI
+  CASH
+  BANK_TRANSFER
+  CARD
+  OTHER
+}
+
+enum PaymentStatus {
+  RECEIVED
+  PENDING
+  OVERDUE
+  PARTIALLY_PAID
+  WAIVED
+  REFUNDED
+}
+
+// INVOICES
+
+model Invoice {
+  id              String    @id @default(cuid())
+  practitionerId  String
+  practitioner    User      @relation(fields: [practitionerId], references: [id])
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id])
+
+  invoiceNumber   String    @unique // e.g. INV-2026-0001
+  periodStart     DateTime
+  periodEnd       DateTime
+  dueDate         DateTime
+
+  items           Json      // Array of { description, quantity, unitPrice, total }
+  subtotal        Int
+  discount        Int       @default(0)
+  tax             Int       @default(0)
+  total           Int
+
+  status          InvoiceStatus @default(DRAFT)
+  notes           String?   @db.Text
+  pdfUrl          String?
+
+  payments        Payment[]
+
+  sentAt          DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model Availability {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+
+  dayOfWeek       Int
+  startTime       String
+  endTime         String
+  isActive        Boolean   @default(true)
+}
+
+// REVIEWS
+
+model Review {
+  id                  String    @id @default(cuid())
+  reviewerId          String
+  reviewer            User      @relation("Reviewer", fields: [reviewerId], references: [id])
+  reviewedId          String
+  reviewed            User      @relation("Reviewed", fields: [reviewedId], references: [id])
+  supervisionSessionId String?  @unique
+  supervisionSession  SupervisionSession? @relation(fields: [supervisionSessionId], references: [id])
+
+  rating              Int
+  comment             String?   @db.Text
+  isVisible           Boolean   @default(false)
+  visibleAt           DateTime?
+
+  createdAt           DateTime  @default(now())
+}
+
+// SUBSCRIPTIONS & BILLING
+
+model Subscription {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id])
+
+  plan            SubscriptionPlan
+  status          SubscriptionStatus @default(ACTIVE)
+  startDate       DateTime
+  endDate         DateTime?
+  razorpaySubId   String?
+
+  createdAt       DateTime  @default(now())
+}
+
+enum SubscriptionPlan {
+  FREE
+  SOLO
+  SOLO_ANNUAL
+  CLINIC
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  TRIAL
+}
+
+// NOTIFICATIONS
+
+model Notification {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+
+  type            NotificationType
+  title           String
+  body            String
+  link            String?
+  read            Boolean   @default(false)
+
+  createdAt       DateTime  @default(now())
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  SESSION_REMINDER
+  PAYMENT_RECEIVED
+  PAYMENT_OVERDUE
+  INVOICE_GENERATED
+  SUPERVISION_LOG_READY
+  NEW_REVIEW
+  VERIFICATION_UPDATE
+  PAYOUT_PROCESSED
+}
+
+// CLIENT PROFILE (for client-type users)
+
+model ClientProfile {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  displayName       String
+  dateOfBirth       DateTime?
+  gender            String?
+  occupation        String?
+  city              String?
+  state             String?
+  emergencyContact  String?
+  emergencyPhone    String?
+  preferredLanguage String?   @default("English")
+
+  // Link to Client records across practitioners
+  linkedClientId    String?   // Links to Client.id if matched by email/phone
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+// CLIENT PORTAL
+
+model ClientPortalToken {
+  id              String    @id @default(cuid())
+  token           String    @unique @default(cuid())
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  practitionerId  String
+
+  isActive        Boolean   @default(true)
+  expiresAt       DateTime?
+  lastAccessedAt  DateTime?
+
+  createdAt       DateTime  @default(now())
+}
+
+// COMMUNITY
+
+model ReferralPost {
+  id              String    @id @default(cuid())
+  authorId        String
+  author          User      @relation(fields: [authorId], references: [id])
+
+  title           String
+  description     String    @db.Text
+  specializations String[]
+  city            String?
+  modality        String?   // ONLINE, IN_PERSON, HYBRID
+  urgency         ReferralUrgency @default(NORMAL)
+  status          ReferralStatus  @default(OPEN)
+
+  responses       ReferralResponse[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+enum ReferralUrgency {
+  NORMAL
+  URGENT
+}
+
+enum ReferralStatus {
+  OPEN
+  FULFILLED
+  CLOSED
+}
+
+model ReferralResponse {
+  id              String    @id @default(cuid())
+  postId          String
+  post            ReferralPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  responderId     String
+  responder       User      @relation(fields: [responderId], references: [id])
+
+  message         String    @db.Text
+  status          ResponseStatus @default(OFFERED)
+
+  createdAt       DateTime  @default(now())
+}
+
+enum ResponseStatus {
+  OFFERED
+  ACCEPTED
+  DECLINED
+}
+
+model Space {
+  id              String    @id @default(cuid())
+  name            String
+  description     String?   @db.Text
+  category        SpaceCategory
+  type            SpaceType @default(OPEN)
+  iconEmoji       String?   @default("💬")
+
+  posts           SpacePost[]
+  members         SpaceMembership[]
+
+  createdAt       DateTime  @default(now())
+}
+
+enum SpaceCategory {
+  CLINICAL
+  BUSINESS
+  ETHICS
+  REGIONAL
+  TRAINING
+  GENERAL
+}
+
+enum SpaceType {
+  OPEN
+  MODERATED
+  PRIVATE
+}
+
+model SpacePost {
+  id              String    @id @default(cuid())
+  spaceId         String
+  space           Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  authorId        String
+  author          User      @relation(fields: [authorId], references: [id])
+
+  title           String
+  content         String    @db.Text
+  isPinned        Boolean   @default(false)
+
+  comments        Comment[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Comment {
+  id              String    @id @default(cuid())
+  postId          String
+  post            SpacePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId        String
+  author          User      @relation(fields: [authorId], references: [id])
+
+  content         String    @db.Text
+  parentId        String?
+  parent          Comment?  @relation("CommentThread", fields: [parentId], references: [id])
+  replies         Comment[] @relation("CommentThread")
+
+  createdAt       DateTime  @default(now())
+}
+
+model SpaceMembership {
+  id              String    @id @default(cuid())
+  spaceId         String
+  space           Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+
+  role            MemberRole @default(MEMBER)
+  joinedAt        DateTime  @default(now())
+
+  @@unique([spaceId, userId])
+}
+
+enum MemberRole {
+  MEMBER
+  MODERATOR
+  ADMIN
+}
+
+// PRESCRIPTIONS
+
+model Prescription {
+  id              String    @id @default(cuid())
+  practitionerId  String
+  practitioner    User      @relation(fields: [practitionerId], references: [id])
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id])
+
+  title           String
+  description     String?   @db.Text
+  fileUrl         String
+  fileName        String
+  fileType        String
+  fileSize        Int
+
+  isVisibleToClient Boolean @default(true)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// REPORTS / MODERATION
+
+model Report {
+  id          String   @id @default(cuid())
+  reporterId  String
+  contentType String   // "POST" or "COMMENT"
+  contentId   String
+  reason      String
+  status      String   @default("PENDING") // PENDING, REVIEWED, DISMISSED
+  createdAt   DateTime @default(now())
+
+  @@index([contentType, contentId])
+}
+
+// AUTH TOKENS
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
