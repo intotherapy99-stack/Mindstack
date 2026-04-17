@@ -1,15 +1,29 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
+import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: { strategy: "jwt", maxAge: 7 * 24 * 60 * 60 }, // 7 days (reduced from 30)
+  adapter: PrismaAdapter(prisma),
+  session: { strategy: "jwt", maxAge: 7 * 24 * 60 * 60 }, // 7 days
   pages: {
     signIn: "/login",
     newUser: "/onboarding",
   },
   providers: [
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          scope: "openid email profile https://www.googleapis.com/auth/calendar.events",
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
+    }),
     Credentials({
       name: "credentials",
       credentials: {
@@ -26,12 +40,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           include: { profile: true, clientProfile: true },
         });
 
-        if (!user) {
+        if (!user || !user.passwordHash) {
           console.info("[AUDIT]", JSON.stringify({
             timestamp: new Date().toISOString(),
             action: "LOGIN_FAILED",
             email,
-            reason: "user_not_found",
+            reason: user ? "no_password_set" : "user_not_found",
           }));
           return null;
         }
@@ -105,21 +119,92 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async signIn({ user, account }) {
+      // For Google OAuth: handle first-time user setup
+      if (account?.provider === "google") {
+        const existingUser = await prisma.user.findUnique({
+          where: { email: user.email! },
+        });
+
+        if (!existingUser) {
+          // New Google user — will be created by adapter, but we need to set defaults
+          // The adapter creates the User, so we update it post-creation in the jwt callback
+          return true;
+        }
+
+        // Existing user linking their Google account
+        return true;
+      }
+      return true;
+    },
+
+    async jwt({ token, user, account, trigger }) {
+      // On initial sign-in (both Credentials and OAuth)
       if (user) {
         token.id = user.id!;
-        token.role = (user as any).role;
-        token.userType = (user as any).userType;
+        token.role = (user as any).role ?? "USER";
+        token.userType = (user as any).userType ?? "PROFESSIONAL";
       }
+
+      // For Google OAuth: ensure userType is populated from DB
+      if (account?.provider === "google") {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { role: true, userType: true },
+        });
+        if (dbUser) {
+          token.role = dbUser.role;
+          token.userType = dbUser.userType;
+        }
+      }
+
       return token;
     },
+
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        (session.user as any).role = token.role;
+        session.user.role = token.role as string;
         (session.user as any).userType = token.userType;
       }
       return session;
+    },
+  },
+
+  events: {
+    async createUser({ user }) {
+      // When a new user is created via OAuth, set up their profile
+      if (user.email && user.id) {
+        const hasProfile = await prisma.profile.findUnique({
+          where: { userId: user.id },
+        });
+
+        if (!hasProfile) {
+          const displayName = user.name || user.email.split("@")[0];
+          const slug = displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + user.id.slice(-4);
+
+          await prisma.profile.create({
+            data: {
+              userId: user.id,
+              displayName,
+              slug,
+              city: "",
+              state: "",
+              role: "THERAPIST",
+            },
+          });
+
+          // Create free subscription
+          await prisma.subscription.create({
+            data: {
+              userId: user.id,
+              plan: "FREE",
+              status: "ACTIVE",
+              startDate: new Date(),
+            },
+          });
+        }
+      }
     },
   },
 });

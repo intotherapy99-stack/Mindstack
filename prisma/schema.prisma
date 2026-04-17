@@ -14,7 +14,7 @@ model User {
   id                String    @id @default(cuid())
   email             String    @unique
   phone             String?   @unique
-  passwordHash      String
+  passwordHash      String?
   emailVerified     DateTime?
   phoneVerified     DateTime?
   role              String    @default("USER") // USER or ADMIN
@@ -25,6 +25,7 @@ model User {
   failedLoginAttempts Int       @default(0)
   lockedUntil       DateTime?
 
+  accounts          Account[]
   profile           Profile?
   clientProfile     ClientProfile?
   sessionsAsSupervisee  SupervisionSession[] @relation("Supervisee")
@@ -52,6 +53,25 @@ model User {
 enum UserType {
   PROFESSIONAL
   CLIENT
+}
+
+// OAuth accounts (NextAuth Prisma Adapter)
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Profile {
@@ -91,6 +111,9 @@ model Profile {
   bufferTime          Int       @default(10)
 
   isPublic            Boolean   @default(true)
+
+  googleCalendarEnabled Boolean @default(false)
+  googleCalendarId      String?
 }
 
 enum ProfessionalRole {
@@ -230,6 +253,9 @@ model Appointment {
 
   reminderSent24h Boolean   @default(false)
   reminderSent2h  Boolean   @default(false)
+
+  googleEventId   String?
+  googleCalendarId String?
 
   createdAt       DateTime  @default(now())
 }

@@ -84,6 +84,9 @@ const publicPaths = [
   "/privacy",
   "/terms",
   "/find-therapist",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
 ];
 
 export async function middleware(req: NextRequest) {
@@ -91,6 +94,10 @@ export async function middleware(req: NextRequest) {
 
   // ─── Global API rate limiting ───────────────────────────────────────
   if (pathname.startsWith("/api/")) {
+    // Skip rate limiting for webhooks (they have their own signature verification)
+    if (pathname.startsWith("/api/webhooks/")) {
+      return NextResponse.next();
+    }
     const rateLimited = globalApiRateLimit(req);
     if (rateLimited) return rateLimited;
     return NextResponse.next();
