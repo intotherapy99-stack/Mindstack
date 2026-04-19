@@ -26,6 +26,7 @@ model User {
   lockedUntil       DateTime?
 
   accounts          Account[]
+  sessions          Session[]
   profile           Profile?
   clientProfile     ClientProfile?
   sessionsAsSupervisee  SupervisionSession[] @relation("Supervisee")
@@ -69,9 +70,27 @@ model Account {
   token_type        String?
   scope             String?
   id_token          String? @db.Text
+  session_state     String?
 
   @@unique([provider, providerAccountId])
   @@index([userId])
+}
+
+// NextAuth Prisma Adapter required models (we use JWT sessions, but adapter needs these)
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
 }
 
 model Profile {
