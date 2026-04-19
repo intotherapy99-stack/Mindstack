@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createPaymentForCompletedAppointment } from "@/lib/billing";
+import { syncAppointmentToGoogle, deleteGoogleCalendarEvent } from "@/lib/google-calendar";
 
 // GET — single appointment with payment info
 export async function GET(
@@ -67,7 +68,37 @@ export async function PATCH(
   const updated = await prisma.appointment.update({
     where: { id: params.id },
     data,
+    include: {
+      client: { select: { firstName: true, lastName: true } },
+    },
   });
+
+  // Sync cancellation to Google Calendar
+  if (status === "CANCELLED" && appointment.googleEventId) {
+    await deleteGoogleCalendarEvent(
+      session.user.id,
+      appointment.googleEventId,
+      appointment.googleCalendarId || undefined,
+    ).catch((err) => console.error("[appointments] gcal delete failed:", err));
+  }
+
+  // Sync updates (non-cancel) to Google Calendar
+  if (status && status !== "CANCELLED" && appointment.googleEventId) {
+    await syncAppointmentToGoogle({
+      id: updated.id,
+      practitionerId: session.user.id,
+      scheduledAt: updated.scheduledAt,
+      duration: updated.duration,
+      modality: updated.modality,
+      meetingLink: updated.meetingLink,
+      client: updated.client ? {
+        firstName: updated.client.firstName,
+        lastName: updated.client.lastName || undefined,
+      } : undefined,
+      googleEventId: updated.googleEventId || undefined,
+      googleCalendarId: updated.googleCalendarId || undefined,
+    }).catch((err) => console.error("[appointments] gcal sync failed:", err));
+  }
 
   // Auto-create PENDING payment when marked COMPLETED
   if (status === "COMPLETED") {

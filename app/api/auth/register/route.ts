@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { formatPhoneForStorage } from "@/lib/utils";
 import { authRateLimit } from "@/lib/rate-limit";
+import { sendWelcomeEmail, sendVerificationEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   const rateLimitResponse = authRateLimit(req);
@@ -78,6 +79,25 @@ export async function POST(req: NextRequest) {
         },
       });
     }
+
+    // Send welcome email
+    await sendWelcomeEmail(email, name).catch((err) =>
+      console.error("[register] welcome email failed:", err)
+    );
+
+    // Send email verification token
+    const crypto = await import("crypto");
+    const verifyToken = crypto.randomUUID();
+    await prisma.emailVerificationToken.create({
+      data: {
+        email: email.toLowerCase(),
+        token: verifyToken,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
+    });
+    await sendVerificationEmail(email, verifyToken).catch((err) =>
+      console.error("[register] verification email failed:", err)
+    );
 
     return NextResponse.json(
       { message: "Account created successfully", userId: user.id, userType },

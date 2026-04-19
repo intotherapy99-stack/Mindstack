@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { syncAppointmentToGoogle } from "@/lib/google-calendar";
+import { sendAppointmentConfirmation } from "@/lib/email";
+import { sendBookingConfirmationWhatsApp } from "@/lib/msg91";
+import { format } from "date-fns";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -74,6 +78,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Generate meeting link for online sessions (Jitsi fallback)
+  let meetingLink: string | undefined;
+  if ((modality || "IN_PERSON") === "ONLINE") {
+    meetingLink = `https://meet.jit.si/mindstack-${Date.now().toString(36)}`;
+  }
+
   const appointment = await prisma.appointment.create({
     data: {
       practitionerId: session.user.id,
@@ -83,8 +93,70 @@ export async function POST(req: NextRequest) {
       sessionType: sessionType || "FOLLOW_UP",
       modality: modality || "IN_PERSON",
       fee: fee || null,
+      meetingLink: meetingLink || null,
+    },
+    include: {
+      client: { select: { firstName: true, lastName: true, email: true, phone: true } },
     },
   });
+
+  // Sync to Google Calendar (may upgrade meeting link to Google Meet)
+  const calResult = await syncAppointmentToGoogle({
+    id: appointment.id,
+    practitionerId: session.user.id,
+    scheduledAt: appointment.scheduledAt,
+    duration: appointment.duration,
+    modality: appointment.modality,
+    meetingLink: appointment.meetingLink,
+    client: appointment.client ? {
+      firstName: appointment.client.firstName,
+      lastName: appointment.client.lastName || undefined,
+    } : undefined,
+    googleEventId: undefined,
+    googleCalendarId: undefined,
+  });
+
+  if (calResult) {
+    await prisma.appointment.update({
+      where: { id: appointment.id },
+      data: {
+        googleEventId: calResult.googleEventId,
+        googleCalendarId: calResult.googleCalendarId,
+        meetingLink: calResult.meetingLink || appointment.meetingLink,
+      },
+    });
+    if (calResult.meetingLink) meetingLink = calResult.meetingLink;
+  }
+
+  // Send confirmation email to client
+  const practitionerProfile = await prisma.profile.findUnique({
+    where: { userId: session.user.id },
+    select: { displayName: true },
+  });
+
+  if (appointment.client?.email) {
+    const dateStr = format(new Date(scheduledAt), "dd MMM yyyy");
+    const timeStr = format(new Date(scheduledAt), "hh:mm a");
+    await sendAppointmentConfirmation(appointment.client.email, {
+      practitionerName: practitionerProfile?.displayName || "Your practitioner",
+      clientName: appointment.client.firstName,
+      date: dateStr,
+      time: timeStr,
+      modality: modality || "IN_PERSON",
+      meetingLink: meetingLink,
+    }).catch((err) => console.error("[appointments] email failed:", err));
+  }
+
+  // Send WhatsApp confirmation to client
+  if (appointment.client?.phone) {
+    const dateStr = format(new Date(scheduledAt), "dd MMM yyyy");
+    const timeStr = format(new Date(scheduledAt), "hh:mm a");
+    await sendBookingConfirmationWhatsApp(appointment.client.phone, {
+      practitionerName: practitionerProfile?.displayName || "Your practitioner",
+      date: dateStr,
+      time: timeStr,
+    }).catch((err) => console.error("[appointments] whatsapp failed:", err));
+  }
 
   return NextResponse.json(appointment, { status: 201 });
 }
