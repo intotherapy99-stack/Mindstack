@@ -142,6 +142,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // On initial sign-in (both Credentials and OAuth)
       if (user) {
         token.id = user.id!;
+        token.name = user.name;
+        token.email = user.email;
         token.role = (user as any).role ?? "USER";
         token.userType = (user as any).userType ?? "PROFESSIONAL";
       }
@@ -164,6 +166,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.name = token.name as string;
+        session.user.email = token.email as string;
         session.user.role = token.role as string;
         (session.user as any).userType = token.userType;
       }

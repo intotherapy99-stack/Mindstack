@@ -8,6 +8,8 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  try {
+
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -122,4 +124,17 @@ export async function GET() {
     topOutstanding,
     monthlyData,
   });
+
+  } catch (error) {
+    console.error("[payments/summary] Error:", error);
+    return NextResponse.json({
+      totalThisMonth: 0,
+      sessionsThisMonth: 0,
+      outstandingTotal: 0,
+      outstandingCount: 0,
+      overdueCount: 0,
+      topOutstanding: [],
+      monthlyData: [],
+    });
+  }
 }

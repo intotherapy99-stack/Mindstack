@@ -9,10 +9,7 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if ((session.user as any).role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden — admin only" }, { status: 403 });
-  }
-
+  // Allow seeding if no spaces exist yet (first user bootstraps the community)
   const existing = await prisma.space.count();
   if (existing > 0) {
     return NextResponse.json({ message: "Spaces already seeded", count: existing });

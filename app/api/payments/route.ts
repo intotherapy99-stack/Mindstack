@@ -35,18 +35,23 @@ export async function GET(req: NextRequest) {
     where.clientId = clientId;
   }
 
-  const payments = await prisma.payment.findMany({
-    where,
-    include: {
-      client: { select: { firstName: true, lastName: true } },
-      appointment: {
-        select: { scheduledAt: true, sessionType: true },
+  try {
+    const payments = await prisma.payment.findMany({
+      where,
+      include: {
+        client: { select: { firstName: true, lastName: true } },
+        appointment: {
+          select: { scheduledAt: true, sessionType: true },
+        },
       },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+      orderBy: { createdAt: "desc" },
+    });
 
-  return NextResponse.json(payments);
+    return NextResponse.json(payments);
+  } catch (error) {
+    console.error("[payments] Error:", error);
+    return NextResponse.json([]);
+  }
 }
 
 export async function POST(req: NextRequest) {

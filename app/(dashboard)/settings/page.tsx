@@ -43,15 +43,62 @@ export default function SettingsPage() {
   const [changingPassword, setChangingPassword] = useState(false);
 
   const [darkMode, setDarkMode] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    setDarkMode(localStorage.getItem("theme") === "dark");
+    const isDark = localStorage.getItem("theme") === "dark";
+    setDarkMode(isDark);
+    document.documentElement.classList.toggle("dark", isDark);
   }, []);
 
   function handleDarkModeToggle(v: boolean) {
     document.documentElement.classList.toggle("dark", v);
     localStorage.setItem("theme", v ? "dark" : "light");
     setDarkMode(v);
+  }
+
+  async function handleExportData() {
+    setExporting(true);
+    try {
+      const res = await fetch("/api/users/me/export");
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = res.headers.get("Content-Disposition")
+        ?.match(/filename="(.+)"/)?.[1] || "mindstack-data-export.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Data exported successfully");
+    } catch {
+      toast.error("Failed to export data. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (deleteConfirmText !== "DELETE") return;
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/users/me", { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete account");
+      }
+      toast.success("Account deleted. Redirecting...");
+      // Sign out and redirect to home
+      window.location.href = "/login";
+    } catch (err: any) {
+      toast.error(err.message);
+      setDeleting(false);
+    }
   }
 
   const [notifications, setNotifications] = useState({
@@ -119,9 +166,20 @@ export default function SettingsPage() {
   }
 
   function addSlot(dayOfWeek: number) {
+    // Find the latest end time for this day to suggest the next slot
+    const daySlots = availability.filter((s) => s.dayOfWeek === dayOfWeek);
+    let startHour = 9;
+    if (daySlots.length > 0) {
+      const lastEnd = daySlots
+        .map((s) => parseInt(s.endTime?.split(":")[0] || "9", 10))
+        .sort((a, b) => b - a)[0];
+      startHour = Math.min(lastEnd, 21); // Cap at 21:00 so end doesn't exceed 22:00
+    }
+    const startTime = `${String(startHour).padStart(2, "0")}:00`;
+    const endTime = `${String(startHour + 1).padStart(2, "0")}:00`;
     setAvailability([
       ...availability,
-      { dayOfWeek, startTime: "09:00", endTime: "17:00", isActive: true },
+      { dayOfWeek, startTime, endTime, isActive: true },
     ]);
   }
 
@@ -545,7 +603,9 @@ export default function SettingsPage() {
                     <p className="text-xs text-neutral-400">Get a JSON export of all your data</p>
                   </div>
                 </div>
-                <Button variant="secondary" size="sm">Download</Button>
+                <Button variant="secondary" size="sm" onClick={handleExportData} disabled={exporting}>
+                  {exporting ? <><RefreshCw size={14} className="mr-1.5 animate-spin" /> Exporting...</> : "Download"}
+                </Button>
               </div>
               <div className="flex items-center justify-between p-4 bg-gradient-to-r from-red-50 to-pink-50 rounded-xl border border-red-100">
                 <div className="flex items-center gap-3">
@@ -557,8 +617,45 @@ export default function SettingsPage() {
                     <p className="text-xs text-red-400">Permanently delete all data. This cannot be undone.</p>
                   </div>
                 </div>
-                <Button variant="danger" size="sm">Delete Account</Button>
+                <Button variant="danger" size="sm" onClick={() => setDeleteConfirmOpen(true)}>Delete Account</Button>
               </div>
+
+              {/* Delete Confirmation */}
+              {deleteConfirmOpen && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl space-y-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle size={18} className="text-red-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-red-800">This action is irreversible</p>
+                      <p className="text-xs text-red-600 mt-1">
+                        All your data — clients, appointments, payments, notes, and settings — will be permanently deleted.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-red-700">Type DELETE to confirm</Label>
+                    <Input
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      placeholder="DELETE"
+                      className="border-red-200 text-sm"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      disabled={deleteConfirmText !== "DELETE" || deleting}
+                      onClick={handleDeleteAccount}
+                    >
+                      {deleting ? <><RefreshCw size={14} className="mr-1.5 animate-spin" /> Deleting...</> : "Permanently Delete"}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => { setDeleteConfirmOpen(false); setDeleteConfirmText(""); }}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

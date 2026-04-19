@@ -130,3 +130,81 @@ export async function PATCH(req: NextRequest) {
 
   return NextResponse.json(profile);
 }
+
+// DELETE /api/users/me — permanently delete account and all data
+export async function DELETE() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const userId = session.user.id;
+
+    // Delete in order to respect FK constraints
+    // 1. Notifications
+    await prisma.notification.deleteMany({ where: { userId } });
+
+    // 2. Notes
+    await prisma.note.deleteMany({ where: { practitionerId: userId } });
+
+    // 3. Payments & Invoices
+    await prisma.payment.deleteMany({ where: { practitionerId: userId } });
+    await prisma.invoice.deleteMany({ where: { practitionerId: userId } });
+
+    // 4. Appointments
+    await prisma.appointment.deleteMany({ where: { practitionerId: userId } });
+
+    // 5. Prescriptions, client portal tokens, and clients
+    await prisma.prescription.deleteMany({ where: { practitionerId: userId } });
+    await prisma.clientPortalToken.deleteMany({
+      where: { client: { practitionerId: userId } },
+    });
+    await prisma.client.deleteMany({ where: { practitionerId: userId } });
+
+    // 6. Supervision sessions (as supervisor or supervisee)
+    await prisma.supervisionSession.deleteMany({
+      where: { OR: [{ supervisorId: userId }, { superviseeId: userId }] },
+    });
+
+    // 7. Availability
+    await prisma.availability.deleteMany({ where: { userId } });
+
+    // 8. Community: comments, space posts, memberships, referral posts/responses
+    await prisma.comment.deleteMany({ where: { authorId: userId } });
+    await prisma.spacePost.deleteMany({ where: { authorId: userId } });
+    await prisma.spaceMembership.deleteMany({ where: { userId } });
+    await prisma.referralResponse.deleteMany({ where: { responderId: userId } });
+    await prisma.referralPost.deleteMany({ where: { authorId: userId } });
+    await prisma.report.deleteMany({ where: { reporterId: userId } });
+
+    // 9. Subscription
+    await prisma.subscription.deleteMany({ where: { userId } });
+
+    // 10. Profile & Client profile
+    await prisma.profile.deleteMany({ where: { userId } });
+    await prisma.clientProfile.deleteMany({ where: { userId } });
+
+    // 11. Auth tokens (keyed by email, not userId)
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (user?.email) {
+      await prisma.emailVerificationToken.deleteMany({ where: { email: user.email } });
+      await prisma.passwordResetToken.deleteMany({ where: { email: user.email } });
+    }
+
+    // 12. Sessions & Accounts (NextAuth)
+    await prisma.session.deleteMany({ where: { userId } });
+    await prisma.account.deleteMany({ where: { userId } });
+
+    // 13. Finally delete the user
+    await prisma.user.delete({ where: { id: userId } });
+
+    return NextResponse.json({ message: "Account deleted successfully" });
+  } catch (error) {
+    console.error("[delete-account] Error:", error);
+    return NextResponse.json(
+      { error: "Failed to delete account. Please try again or contact support." },
+      { status: 500 }
+    );
+  }
+}
