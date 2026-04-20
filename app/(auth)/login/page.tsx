@@ -42,7 +42,21 @@ export default function LoginPage() {
     });
 
     if (result?.error) {
-      setError("Invalid email or password");
+      // Check if the email is registered at all
+      try {
+        const checkRes = await fetch("/api/auth/check-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: data.email }),
+        });
+        const { exists } = await checkRes.json();
+        if (!exists) {
+          // Unknown email — send them to signup
+          router.push(`/signup?email=${encodeURIComponent(data.email)}&mode=${mode}`);
+          return;
+        }
+      } catch {}
+      setError("Incorrect password. Forgot it?");
       setLoading(false);
       return;
     }
@@ -257,9 +271,14 @@ export default function LoginPage() {
 
             {/* Error message */}
             {error && (
-              <div className="text-error text-sm rounded-xl p-3.5 flex items-center gap-2.5 animate-error-fade" style={{ background: "rgba(250,116,111,0.12)" }}>
-                <div className="w-2 h-2 bg-error rounded-full shrink-0 animate-soft-pulse" />
-                {error}
+              <div className="text-error text-sm rounded-xl p-3.5 flex items-center justify-between gap-2.5 animate-error-fade" style={{ background: "rgba(250,116,111,0.12)" }}>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-2 h-2 bg-error rounded-full shrink-0 animate-soft-pulse" />
+                  {error}
+                </div>
+                <Link href="/forgot-password" className="text-xs underline underline-offset-2 whitespace-nowrap opacity-80 hover:opacity-100">
+                  Reset password →
+                </Link>
               </div>
             )}
 
