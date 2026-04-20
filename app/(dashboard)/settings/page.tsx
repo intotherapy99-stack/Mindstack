@@ -313,6 +313,23 @@ export default function SettingsPage() {
               <CardDescription>Manage your email, phone, and password</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Display name info — links to Profile where it can be changed */}
+              {user?.profile?.displayName && (
+                <div className="flex items-center justify-between p-3 bg-primary-50 border border-primary-100 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-sm font-bold text-primary-700">
+                      {user.profile.displayName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-primary-900">{user.profile.displayName}</p>
+                      <p className="text-xs text-primary-600">Name shown across the app</p>
+                    </div>
+                  </div>
+                  <a href="/profile" className="text-xs text-primary-600 hover:text-primary-800 font-medium underline underline-offset-2">
+                    Edit in Profile →
+                  </a>
+                </div>
+              )}
               <div>
                 <Label>Email</Label>
                 <Input value={user?.email || ""} disabled className="mt-1 bg-neutral-50" />

@@ -452,3 +452,92 @@ html {
   --color-purple: #A78BFA;
   --color-coral: #FF7A5C;
 }
+
+/* ── Dark mode full overrides ── */
+.dark body {
+  background: #0F1215 !important;
+  color: #E8EAED !important;
+}
+
+/* Page / layout backgrounds */
+.dark .bg-surface,
+.dark .bg-\[#f6fafa\],
+.dark .bg-mesh-gradient {
+  background: #0F1215 !important;
+}
+
+/* Cards (surface-container-lowest = white in light mode) */
+.dark .bg-surface-container-lowest,
+.dark .rounded-2xl:not([class*="bg-gradient"]):not([class*="from-"]):not([class*="bg-primary"]):not([class*="bg-hero"]):not([class*="bg-supervision"]) {
+  background-color: #1A1D23 !important;
+}
+
+/* Sidebar + nav panels */
+.dark .glass,
+.dark .glass-heavy {
+  background: rgba(26, 29, 35, 0.92) !important;
+}
+
+/* Inputs, selects, textareas */
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.dark textarea,
+.dark select {
+  background-color: #1e2129 !important;
+  color: #E8EAED !important;
+  border-color: #2E3340 !important;
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #5a6070 !important;
+}
+
+/* Text overrides */
+.dark .text-neutral-900 { color: #F0F0F2 !important; }
+.dark .text-neutral-800 { color: #D8D9DC !important; }
+.dark .text-neutral-700 { color: #B4B8C4 !important; }
+.dark .text-neutral-600 { color: #8A8F9E !important; }
+.dark .text-neutral-500 { color: #6B7080 !important; }
+.dark .text-neutral-400 { color: #555A68 !important; }
+.dark [style*="color: #2a3434"] { color: #F0F0F2 !important; }
+.dark [style*="color: #3f4948"] { color: #B4B8C4 !important; }
+
+/* Borders */
+.dark .border-neutral-100 { border-color: #23272F !important; }
+.dark .border-neutral-200 { border-color: #2E3340 !important; }
+.dark .border { border-color: #2E3340 !important; }
+.dark .divide-neutral-100 > * + * { border-color: #23272F !important; }
+.dark .divide-y > * + * { border-color: #23272F !important; }
+
+/* Backgrounds that need inversion */
+.dark .bg-white { background-color: #1A1D23 !important; }
+.dark .bg-neutral-50 { background-color: #16191E !important; }
+.dark .bg-neutral-100 { background-color: #1A1D23 !important; }
+.dark .bg-neutral-200 { background-color: #23272F !important; }
+.dark .bg-surface-container-low { background-color: #1e2129 !important; }
+.dark .bg-surface-container { background-color: #242830 !important; }
+.dark .hover\:bg-neutral-50:hover { background-color: #1e2129 !important; }
+.dark .hover\:bg-neutral-100:hover { background-color: #1A1D23 !important; }
+.dark .hover\:bg-surface-container-low:hover { background-color: #1e2129 !important; }
+
+/* Sidebar specifically */
+.dark aside,
+.dark nav[class*="sidebar"],
+.dark [class*="sidebar"] {
+  background-color: #13161B !important;
+  border-color: #1e2129 !important;
+}
+
+/* Table rows */
+.dark tr { background-color: transparent !important; }
+.dark .hover\:bg-green-50\/20:hover { background-color: rgba(0,80,50,0.12) !important; }
+.dark thead tr { background: #1e2129 !important; }
+
+/* Skeleton loading */
+.dark .skeleton {
+  background: linear-gradient(90deg, #1A1D23 25%, #23272F 50%, #1A1D23 75%) !important;
+}
+
+/* Scrollbar in dark mode */
+.dark ::-webkit-scrollbar-track { background: #13161B; }
+.dark ::-webkit-scrollbar-thumb { background: #2E3340; border-radius: 4px; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #3D4250; }

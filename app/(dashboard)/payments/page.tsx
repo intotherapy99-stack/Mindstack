@@ -28,6 +28,10 @@ import {
   FileText,
   ChevronRight,
   X,
+  Link2,
+  Copy,
+  MessageSquare,
+  Loader2,
 } from "lucide-react";
 import { formatINR } from "@/lib/utils";
 import { IllustrationPayments } from "@/components/illustrations";
@@ -80,6 +84,7 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const initialFilter = searchParams.get("filter") as "all" | "pending" | "received" | null;
   const [filter, setFilter] = useState<"all" | "pending" | "received">(
     initialFilter && ["all", "pending", "received"].includes(initialFilter) ? initialFilter : "all"
@@ -278,6 +283,27 @@ export default function PaymentsPage() {
           <Button variant="secondary" onClick={exportCSV} size="sm" className="gap-1.5 text-xs sm:text-sm">
             <Download size={14} /> Export
           </Button>
+          {/* Send Payment Link */}
+          <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs sm:text-sm">
+                <Link2 size={14} /> Payment Link
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Link2 size={18} className="text-blue-500" />
+                  Send Payment Link to Client
+                </DialogTitle>
+              </DialogHeader>
+              <PaymentLinkForm
+                clients={clients}
+                onClose={() => setLinkDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+          {/* Log Payment */}
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1.5 text-xs sm:text-sm">
@@ -702,6 +728,137 @@ function MarkReceivedButton({
       <CheckCircle2 size={12} />
       {loading ? "..." : "Received"}
     </Button>
+  );
+}
+
+function PaymentLinkForm({ clients, onClose }: { clients: any[]; onClose: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [link, setLink] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [clientId, setClientId] = useState("");
+  const [amount, setAmount] = useState("");
+  const [description, setDescription] = useState("");
+
+  async function handleGenerate(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLink("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/payments/razorpay/payment-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: Number(amount), clientId: clientId || undefined, description }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to generate link");
+      setLink(data.shortUrl);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function copyLink() {
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  function shareWhatsApp() {
+    const clientName = clients.find(c => c.id === clientId);
+    const name = clientName ? ` ${clientName.firstName}` : "";
+    const msg = `Hi${name}! Here's your payment link for the session (₹${amount}): ${link}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+  }
+
+  if (link) {
+    return (
+      <div className="space-y-4">
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2">
+            <Link2 size={18} className="text-green-600" />
+          </div>
+          <p className="text-sm font-medium text-green-800 mb-1">Payment link created!</p>
+          <p className="text-xs text-green-600 mb-3">Share this link with your client</p>
+          <div className="flex items-center gap-2 bg-white rounded-lg border border-green-200 p-2">
+            <p className="text-xs text-neutral-600 flex-1 truncate">{link}</p>
+            <button
+              onClick={copyLink}
+              className="flex-shrink-0 text-green-600 hover:text-green-700 p-1 rounded"
+            >
+              {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
+            </button>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={shareWhatsApp}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366]/20 text-sm font-medium transition-colors"
+          >
+            <MessageSquare size={16} /> Share on WhatsApp
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-neutral-100 text-neutral-600 hover:bg-neutral-200 text-sm font-medium transition-colors"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleGenerate} className="space-y-4">
+      <div>
+        <Label htmlFor="link-client">Client (optional)</Label>
+        <select
+          id="link-client"
+          value={clientId}
+          onChange={e => setClientId(e.target.value)}
+          className="flex h-10 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm mt-1"
+        >
+          <option value="">Select client…</option>
+          {clients.map((c: any) => (
+            <option key={c.id} value={c.id}>{c.firstName} {c.lastName || ""}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <Label htmlFor="link-amount">Amount (₹) *</Label>
+        <Input
+          id="link-amount"
+          type="number"
+          min={1}
+          required
+          value={amount}
+          onChange={e => setAmount(e.target.value)}
+          placeholder="e.g. 1500"
+          className="mt-1"
+        />
+      </div>
+      <div>
+        <Label htmlFor="link-desc">Description</Label>
+        <Input
+          id="link-desc"
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          placeholder="e.g. Follow-up session"
+          className="mt-1"
+        />
+      </div>
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
+          {error}
+        </div>
+      )}
+      <Button type="submit" className="w-full" disabled={loading}>
+        {loading ? <><Loader2 size={16} className="mr-2 animate-spin" /> Generating…</> : "Generate Payment Link"}
+      </Button>
+    </form>
   );
 }
 

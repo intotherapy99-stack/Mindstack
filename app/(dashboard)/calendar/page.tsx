@@ -32,6 +32,8 @@ import {
   MapPin,
   X,
   Loader2,
+  MessageSquare,
+  Mail,
 } from "lucide-react";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
@@ -380,6 +382,41 @@ export default function CalendarPage() {
     }
   };
 
+  // Custom event renderer — shows client name first, type second
+  const EventComponent = useCallback(({ event }: { event: CalendarEvent }) => (
+    <div className="h-full flex flex-col justify-start overflow-hidden px-0.5">
+      <div className="font-semibold text-[11px] leading-tight truncate">
+        {event.clientName || event.title}
+      </div>
+      <div className="text-[10px] opacity-80 truncate mt-0.5">
+        {formatSessionType(event.sessionType || "FOLLOW_UP")}
+      </div>
+    </div>
+  ), []);
+
+  // WhatsApp share for event details
+  const shareViaWhatsApp = useCallback((event: CalendarEvent) => {
+    const dateStr = format(event.start, "EEE, MMM d 'at' h:mm a");
+    const duration = event.duration ? `${event.duration} min` : "50 min";
+    const modality = formatModality(event.modality || "IN_PERSON");
+    let msg = `Hi! Your appointment is confirmed:\n📅 ${dateStr}\n⏱ ${duration}\n📍 ${modality}`;
+    if (event.meetingLink) msg += `\n🔗 Join: ${event.meetingLink}`;
+    const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank");
+  }, []);
+
+  // Email share for event details
+  const shareViaEmail = useCallback((event: CalendarEvent) => {
+    const dateStr = format(event.start, "EEE, MMM d 'at' h:mm a");
+    const duration = event.duration ? `${event.duration} min` : "50 min";
+    const modality = formatModality(event.modality || "IN_PERSON");
+    const subject = encodeURIComponent(`Your appointment on ${format(event.start, "MMM d")}`);
+    let body = `Hi,\n\nYour appointment is confirmed:\n\nDate & Time: ${dateStr}\nDuration: ${duration}\nMode: ${modality}`;
+    if (event.meetingLink) body += `\nJoin link: ${event.meetingLink}`;
+    body += `\n\nPlease let me know if you need to reschedule.\n\nBest regards`;
+    window.open(`mailto:?subject=${subject}&body=${encodeURIComponent(body)}`, "_blank");
+  }, []);
+
   return (
     <div className="max-w-6xl mx-auto page-enter">
       {/* Header */}
@@ -507,6 +544,7 @@ export default function CalendarPage() {
           selectable
           onSelectSlot={handleSelectSlot}
           onSelectEvent={handleSelectEvent}
+          components={{ event: EventComponent as any }}
         />
       </Card>
 
@@ -586,7 +624,7 @@ export default function CalendarPage() {
           </div>
 
           {selectedEvent.status && (
-            <div className="mt-3 pt-3 border-t border-neutral-100">
+            <div className="mt-3 pt-3 border-t border-neutral-100 space-y-2">
               <span
                 className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full ${
                   statusColors[selectedEvent.status] || "bg-neutral-100 text-neutral-600"
@@ -594,6 +632,23 @@ export default function CalendarPage() {
               >
                 {formatStatus(selectedEvent.status)}
               </span>
+              {/* Share with client */}
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => shareViaWhatsApp(selectedEvent)}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366]/20 transition-colors"
+                >
+                  <MessageSquare size={12} />
+                  WhatsApp
+                </button>
+                <button
+                  onClick={() => shareViaEmail(selectedEvent)}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                >
+                  <Mail size={12} />
+                  Email
+                </button>
+              </div>
             </div>
           )}
         </div>
