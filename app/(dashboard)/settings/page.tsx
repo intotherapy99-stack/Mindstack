@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { signOut } from "next-auth/react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -93,7 +94,10 @@ export default function SettingsPage() {
         throw new Error(data.error || "Failed to delete account");
       }
       toast.success("Account deleted. Redirecting...");
-      // Sign out and redirect to home
+      // Properly clear the NextAuth JWT cookie before redirecting.
+      // Without this, the stale cookie persists and causes AccessDenied
+      // when the same Google account tries to sign in again.
+      await signOut({ redirect: false });
       window.location.href = "/login";
     } catch (err: any) {
       toast.error(err.message);

@@ -151,6 +151,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
       }
 
+      // Stale-session guard: if the user was deleted, invalidate the token.
+      // This prevents a ghost JWT (from a deleted account) from blocking a
+      // fresh OAuth sign-in with the same Google account (AccessDenied).
+      if (token.id && !user && !account) {
+        const stillExists = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { id: true },
+        });
+        if (!stillExists) {
+          // Return an empty token — NextAuth will treat this as signed-out
+          return {};
+        }
+      }
+
       return token;
     },
 
