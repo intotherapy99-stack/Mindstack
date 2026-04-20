@@ -11,6 +11,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: "/login",
     newUser: "/onboarding",
+    error: "/auth-error",
   },
   providers: [
     Google({
@@ -120,19 +121,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async signIn({ user, account }) {
-      // For Google OAuth: handle first-time user setup
+      // For Google OAuth: always allow — the adapter handles user creation.
+      // We set up profile/subscription in the createUser event below.
       if (account?.provider === "google") {
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email! },
-        });
-
-        if (!existingUser) {
-          // New Google user — will be created by adapter, but we need to set defaults
-          // The adapter creates the User, so we update it post-creation in the jwt callback
-          return true;
-        }
-
-        // Existing user linking their Google account
         return true;
       }
       return true;
