@@ -39,6 +39,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
+  // Validate fileUrl is from our Supabase Storage bucket — reject any arbitrary URL
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl || !fileUrl.startsWith(`${supabaseUrl}/storage/v1/object/`)) {
+    return NextResponse.json({ error: "Invalid file URL" }, { status: 400 });
+  }
+
   // Verify client belongs to practitioner
   const client = await prisma.client.findFirst({
     where: { id: clientId, practitionerId: session.user.id },

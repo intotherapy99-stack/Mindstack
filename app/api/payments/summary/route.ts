@@ -91,27 +91,28 @@ export async function GET() {
     count: b._count,
   }));
 
-  // Last 6 months for chart
+  // Last 6 months for chart — single query instead of 6 separate findMany calls
+  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  const allMonthlyPayments = await prisma.payment.findMany({
+    where: {
+      practitionerId: session.user.id,
+      status: "RECEIVED",
+      createdAt: { gte: sixMonthsAgo },
+    },
+    select: { amount: true, createdAt: true },
+  });
+
   const monthlyData = [];
   for (let i = 5; i >= 0; i--) {
     const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
-
-    const payments = await prisma.payment.findMany({
-      where: {
-        practitionerId: session.user.id,
-        status: "RECEIVED",
-        createdAt: { gte: start, lte: end },
-      },
-    });
-
+    const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+    const bucket = allMonthlyPayments.filter(
+      (p) => p.createdAt >= start && p.createdAt < end
+    );
     monthlyData.push({
-      month: start.toLocaleDateString("en-IN", {
-        month: "short",
-        year: "2-digit",
-      }),
-      revenue: payments.reduce((sum: number, p: any) => sum + p.amount, 0),
-      sessions: payments.length,
+      month: start.toLocaleDateString("en-IN", { month: "short", year: "2-digit" }),
+      revenue: bucket.reduce((sum: number, p: any) => sum + p.amount, 0),
+      sessions: bucket.length,
     });
   }
 

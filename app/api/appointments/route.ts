@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
   // Generate meeting link for online sessions (Jitsi fallback)
   let meetingLink: string | undefined;
   if ((modality || "IN_PERSON") === "ONLINE") {
-    meetingLink = `https://meet.jit.si/mindstack-${Date.now().toString(36)}`;
+    meetingLink = `https://meet.jit.si/mindstack-${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
   }
 
   const appointment = await prisma.appointment.create({

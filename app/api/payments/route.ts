@@ -89,6 +89,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Verify clientId belongs to this practitioner
+  if (clientId) {
+    const ownedClient = await prisma.client.findFirst({
+      where: { id: clientId, practitionerId: session.user.id },
+      select: { id: true },
+    });
+    if (!ownedClient) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }
+  }
+
   const validMethods = ["UPI", "CASH", "BANK_TRANSFER", "CARD", "OTHER"];
   if (!validMethods.includes(method)) {
     return NextResponse.json(

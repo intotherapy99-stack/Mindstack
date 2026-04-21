@@ -124,19 +124,16 @@ export async function GET(request: NextRequest) {
   // Supervision hours (use custom range if provided)
   const supervisionFrom = rangeFrom ?? startOfMonth(now);
   const supervisionTo = rangeTo ?? now;
-  const supervisionSessions = await prisma.supervisionSession.findMany({
+  const supervisionAgg = await prisma.supervisionSession.aggregate({
     where: {
       superviseeId: userId,
       status: "COMPLETED",
       scheduledAt: { gte: supervisionFrom, lte: supervisionTo },
     },
-    select: { duration: true },
+    _sum: { duration: true },
   });
 
-  const supervisionHoursThisMonth = supervisionSessions.reduce(
-    (sum: number, s: any) => sum + s.duration / 60,
-    0
-  );
+  const supervisionHoursThisMonth = (supervisionAgg._sum.duration ?? 0) / 60;
 
   // Top presenting concerns
   const clientsWithConcerns = await prisma.client.findMany({

@@ -2,14 +2,19 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-// One-time seed endpoint for default community spaces
+// One-time seed endpoint for default community spaces — admin only
 export async function POST() {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Allow seeding if no spaces exist yet (first user bootstraps the community)
+  // Restrict to admin users so any signed-in user can't trigger this
+  if (session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Use a transaction so concurrent requests don't double-seed
   const existing = await prisma.space.count();
   if (existing > 0) {
     return NextResponse.json({ message: "Spaces already seeded", count: existing });

@@ -38,26 +38,47 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { clientId, appointmentId, template, content, tags } = body;
 
-  const note = await prisma.note.create({
-    data: {
-      practitionerId: session.user.id,
-      clientId: clientId || null,
-      appointmentId: appointmentId || null,
-      template: template || "SOAP",
-      content: content || {},
-      tags: tags || [],
-    },
-  });
-
-  // If linked to appointment, mark appointment as completed and auto-create pending payment
+  // Verify the appointment belongs to this practitioner before we can mark it complete
   if (appointmentId) {
-    await prisma.appointment.update({
-      where: { id: appointmentId },
-      data: { status: "COMPLETED" },
+    const owned = await prisma.appointment.findFirst({
+      where: { id: appointmentId, practitionerId: session.user.id },
+      select: { id: true },
+    });
+    if (!owned) {
+      return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
+    }
+  }
+
+  // Note create + appointment status update are atomic so the appointment
+  // is never left as COMPLETED without a note attached.
+  const note = await prisma.$transaction(async (tx) => {
+    const created = await tx.note.create({
+      data: {
+        practitionerId: session.user.id,
+        clientId: clientId || null,
+        appointmentId: appointmentId || null,
+        template: template || "SOAP",
+        content: content || {},
+        tags: tags || [],
+      },
     });
 
-    // Auto-create PENDING payment for this session
-    await createPaymentForCompletedAppointment(appointmentId);
+    if (appointmentId) {
+      await tx.appointment.update({
+        where: { id: appointmentId },
+        data: { status: "COMPLETED" },
+      });
+    }
+
+    return created;
+  });
+
+  // Payment creation is a best-effort side effect outside the transaction.
+  // If it fails the note + appointment status are already committed correctly.
+  if (appointmentId) {
+    await createPaymentForCompletedAppointment(appointmentId).catch((err) =>
+      console.error("[notes] payment auto-create failed:", err)
+    );
   }
 
   await auditLog({
