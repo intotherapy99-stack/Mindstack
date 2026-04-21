@@ -78,6 +78,17 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Verify the client belongs to this practitioner (prevent cross-tenant access)
+  if (clientId) {
+    const ownedClient = await prisma.client.findFirst({
+      where: { id: clientId, practitionerId: session.user.id },
+      select: { id: true },
+    });
+    if (!ownedClient) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }
+  }
+
   // Generate meeting link for online sessions (Jitsi fallback)
   let meetingLink: string | undefined;
   if ((modality || "IN_PERSON") === "ONLINE") {

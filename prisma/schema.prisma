@@ -163,9 +163,9 @@ enum SupervisionModality {
 model SupervisionSession {
   id              String    @id @default(cuid())
   superviseeId    String
-  supervisee      User      @relation("Supervisee", fields: [superviseeId], references: [id])
+  supervisee      User      @relation("Supervisee", fields: [superviseeId], references: [id], onDelete: Cascade)
   supervisorId    String
-  supervisor      User      @relation("Supervisor", fields: [supervisorId], references: [id])
+  supervisor      User      @relation("Supervisor", fields: [supervisorId], references: [id], onDelete: Cascade)
 
   scheduledAt     DateTime
   duration        Int
@@ -194,6 +194,10 @@ model SupervisionSession {
 
   review          Review?
   createdAt       DateTime  @default(now())
+
+  @@index([superviseeId])
+  @@index([supervisorId])
+  @@index([scheduledAt])
 }
 
 enum SessionType {
@@ -214,7 +218,7 @@ enum BookingStatus {
 model Client {
   id              String    @id @default(cuid())
   practitionerId  String
-  practitioner    User      @relation(fields: [practitionerId], references: [id])
+  practitioner    User      @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
 
   firstName       String
   lastName        String?
@@ -242,6 +246,9 @@ model Client {
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  @@index([practitionerId])
+  @@index([email])
 }
 
 enum ClientStatus {
@@ -256,7 +263,7 @@ model Appointment {
   practitionerId  String
   practitioner    User      @relation(fields: [practitionerId], references: [id])
   clientId        String?
-  client          Client?   @relation(fields: [clientId], references: [id])
+  client          Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   scheduledAt     DateTime
   duration        Int       @default(50)
@@ -279,6 +286,11 @@ model Appointment {
   googleCalendarId String?
 
   createdAt       DateTime  @default(now())
+
+  @@index([practitionerId])
+  @@index([clientId])
+  @@index([status])
+  @@index([scheduledAt])
 }
 
 enum AppointmentType {
@@ -301,9 +313,9 @@ model Note {
   practitionerId  String
   practitioner    User      @relation(fields: [practitionerId], references: [id])
   clientId        String?
-  client          Client?   @relation(fields: [clientId], references: [id])
+  client          Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
   appointmentId   String?   @unique
-  appointment     Appointment? @relation(fields: [appointmentId], references: [id])
+  appointment     Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
 
   template        NoteTemplate @default(SOAP)
   content         Json
@@ -311,6 +323,9 @@ model Note {
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  @@index([practitionerId])
+  @@index([clientId])
 }
 
 enum NoteTemplate {
@@ -324,11 +339,11 @@ model Payment {
   practitionerId  String
   practitioner    User      @relation(fields: [practitionerId], references: [id])
   clientId        String?
-  client          Client?   @relation(fields: [clientId], references: [id])
+  client          Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
   appointmentId   String?   @unique
-  appointment     Appointment? @relation(fields: [appointmentId], references: [id])
+  appointment     Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
   invoiceId       String?
-  invoice         Invoice?  @relation(fields: [invoiceId], references: [id])
+  invoice         Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
   amount          Int
   method          PaymentMethod @default(OTHER)
@@ -341,6 +356,10 @@ model Payment {
   invoiceUrl      String?
 
   createdAt       DateTime  @default(now())
+
+  @@index([practitionerId])
+  @@index([clientId])
+  @@index([status])
 }
 
 enum PaymentMethod {
@@ -367,7 +386,7 @@ model Invoice {
   practitionerId  String
   practitioner    User      @relation(fields: [practitionerId], references: [id])
   clientId        String
-  client          Client    @relation(fields: [clientId], references: [id])
+  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   invoiceNumber   String    @unique // e.g. INV-2026-0001
   periodStart     DateTime
@@ -390,6 +409,9 @@ model Invoice {
   paidAt          DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  @@index([practitionerId])
+  @@index([clientId])
 }
 
 enum InvoiceStatus {
@@ -404,12 +426,14 @@ enum InvoiceStatus {
 model Availability {
   id              String    @id @default(cuid())
   userId          String
-  user            User      @relation(fields: [userId], references: [id])
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   dayOfWeek       Int
   startTime       String
   endTime         String
   isActive        Boolean   @default(true)
+
+  @@index([userId])
 }
 
 // REVIEWS
@@ -417,11 +441,11 @@ model Availability {
 model Review {
   id                  String    @id @default(cuid())
   reviewerId          String
-  reviewer            User      @relation("Reviewer", fields: [reviewerId], references: [id])
+  reviewer            User      @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
   reviewedId          String
-  reviewed            User      @relation("Reviewed", fields: [reviewedId], references: [id])
+  reviewed            User      @relation("Reviewed", fields: [reviewedId], references: [id], onDelete: Cascade)
   supervisionSessionId String?  @unique
-  supervisionSession  SupervisionSession? @relation(fields: [supervisionSessionId], references: [id])
+  supervisionSession  SupervisionSession? @relation(fields: [supervisionSessionId], references: [id], onDelete: SetNull)
 
   rating              Int
   comment             String?   @db.Text
@@ -429,6 +453,9 @@ model Review {
   visibleAt           DateTime?
 
   createdAt           DateTime  @default(now())
+
+  @@index([reviewedId])
+  @@index([reviewerId])
 }
 
 // SUBSCRIPTIONS & BILLING
@@ -436,7 +463,7 @@ model Review {
 model Subscription {
   id              String    @id @default(cuid())
   userId          String    @unique
-  user            User      @relation(fields: [userId], references: [id])
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   plan            SubscriptionPlan
   status          SubscriptionStatus @default(ACTIVE)
@@ -466,7 +493,7 @@ enum SubscriptionStatus {
 model Notification {
   id              String    @id @default(cuid())
   userId          String
-  user            User      @relation(fields: [userId], references: [id])
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   type            NotificationType
   title           String
@@ -475,6 +502,9 @@ model Notification {
   read            Boolean   @default(false)
 
   createdAt       DateTime  @default(now())
+
+  @@index([userId])
+  @@index([read])
 }
 
 enum NotificationType {
@@ -528,6 +558,9 @@ model ClientPortalToken {
   lastAccessedAt  DateTime?
 
   createdAt       DateTime  @default(now())
+
+  @@index([clientId])
+  @@index([practitionerId])
 }
 
 // COMMUNITY
@@ -535,7 +568,7 @@ model ClientPortalToken {
 model ReferralPost {
   id              String    @id @default(cuid())
   authorId        String
-  author          User      @relation(fields: [authorId], references: [id])
+  author          User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   title           String
   description     String    @db.Text
@@ -549,6 +582,9 @@ model ReferralPost {
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  @@index([authorId])
+  @@index([status])
 }
 
 enum ReferralUrgency {
@@ -567,12 +603,15 @@ model ReferralResponse {
   postId          String
   post            ReferralPost @relation(fields: [postId], references: [id], onDelete: Cascade)
   responderId     String
-  responder       User      @relation(fields: [responderId], references: [id])
+  responder       User      @relation(fields: [responderId], references: [id], onDelete: Cascade)
 
   message         String    @db.Text
   status          ResponseStatus @default(OFFERED)
 
   createdAt       DateTime  @default(now())
+
+  @@index([postId])
+  @@index([responderId])
 }
 
 enum ResponseStatus {
@@ -615,7 +654,7 @@ model SpacePost {
   spaceId         String
   space           Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   authorId        String
-  author          User      @relation(fields: [authorId], references: [id])
+  author          User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   title           String
   content         String    @db.Text
@@ -625,6 +664,9 @@ model SpacePost {
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  @@index([spaceId])
+  @@index([authorId])
 }
 
 model Comment {
@@ -632,14 +674,17 @@ model Comment {
   postId          String
   post            SpacePost @relation(fields: [postId], references: [id], onDelete: Cascade)
   authorId        String
-  author          User      @relation(fields: [authorId], references: [id])
+  author          User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   content         String    @db.Text
   parentId        String?
-  parent          Comment?  @relation("CommentThread", fields: [parentId], references: [id])
+  parent          Comment?  @relation("CommentThread", fields: [parentId], references: [id], onDelete: SetNull)
   replies         Comment[] @relation("CommentThread")
 
   createdAt       DateTime  @default(now())
+
+  @@index([postId])
+  @@index([authorId])
 }
 
 model SpaceMembership {
@@ -647,12 +692,13 @@ model SpaceMembership {
   spaceId         String
   space           Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   userId          String
-  user            User      @relation(fields: [userId], references: [id])
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   role            MemberRole @default(MEMBER)
   joinedAt        DateTime  @default(now())
 
   @@unique([spaceId, userId])
+  @@index([userId])
 }
 
 enum MemberRole {
@@ -666,9 +712,9 @@ enum MemberRole {
 model Prescription {
   id              String    @id @default(cuid())
   practitionerId  String
-  practitioner    User      @relation(fields: [practitionerId], references: [id])
+  practitioner    User      @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
   clientId        String
-  client          Client    @relation(fields: [clientId], references: [id])
+  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   title           String
   description     String?   @db.Text
@@ -681,6 +727,9 @@ model Prescription {
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  @@index([practitionerId])
+  @@index([clientId])
 }
 
 // REPORTS / MODERATION

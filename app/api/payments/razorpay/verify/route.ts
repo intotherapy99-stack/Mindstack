@@ -39,8 +39,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Update supervision session if provided
+    // Update supervision session if provided — verify the caller is the supervisee
     if (supervisionSessionId) {
+      const owned = await prisma.supervisionSession.findFirst({
+        where: { id: supervisionSessionId, superviseeId: session.user.id },
+        select: { id: true },
+      });
+      if (!owned) {
+        return NextResponse.json({ error: "Session not found" }, { status: 404 });
+      }
       await prisma.supervisionSession.update({
         where: { id: supervisionSessionId },
         data: {
@@ -51,10 +58,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Update appointment payment if provided
+    // Update appointment payment — scope to this practitioner to prevent cross-tenant writes
     if (appointmentId) {
       await prisma.payment.updateMany({
-        where: { appointmentId },
+        where: { appointmentId, practitionerId: session.user.id },
         data: {
           status: "RECEIVED",
           paidAt: new Date(),
