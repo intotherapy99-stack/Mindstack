@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { toZonedTime } from "date-fns-tz";
+
+const IST = "Asia/Kolkata";
 
 export async function GET() {
   const session = await auth();
@@ -10,7 +13,7 @@ export async function GET() {
 
   try {
 
-  const now = new Date();
+  const now = toZonedTime(new Date(), IST);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 

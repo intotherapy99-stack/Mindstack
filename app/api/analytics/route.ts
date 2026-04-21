@@ -1,15 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { apiRateLimit } from "@/lib/rate-limit";
 import { startOfWeek, endOfWeek, subWeeks, startOfMonth, subMonths, subDays, parseISO } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
+
+const IST = "Asia/Kolkata";
 
 export async function GET(request: NextRequest) {
+  const limited = apiRateLimit(request);
+  if (limited) return limited;
+
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const now = new Date();
+  // Use IST for date-boundary calculations so week/month boundaries
+  // match the practitioner's local day, not the UTC server clock.
+  const now = toZonedTime(new Date(), IST);
   const userId = session.user.id;
 
   // Read optional from/to query params

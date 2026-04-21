@@ -12,6 +12,20 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { supervisorId, scheduledAt, duration, modality, caseContext } = body;
 
+  if (!supervisorId || !scheduledAt || !duration || !modality) {
+    return NextResponse.json({ error: "supervisorId, scheduledAt, duration, and modality are required" }, { status: 400 });
+  }
+
+  const parsedDuration = Number(duration);
+  if (!Number.isInteger(parsedDuration) || parsedDuration < 30 || parsedDuration > 180) {
+    return NextResponse.json({ error: "Duration must be between 30 and 180 minutes" }, { status: 400 });
+  }
+
+  const sessionDate = new Date(scheduledAt);
+  if (isNaN(sessionDate.getTime()) || sessionDate <= new Date()) {
+    return NextResponse.json({ error: "scheduledAt must be a valid future date" }, { status: 400 });
+  }
+
   // Rule 1: Cannot book own supervision
   if (supervisorId === session.user.id) {
     return NextResponse.json(
@@ -33,7 +47,6 @@ export async function POST(req: NextRequest) {
   }
 
   // Rule 3: Check slot within availability window
-  const sessionDate = new Date(scheduledAt);
   const dayOfWeek = sessionDate.getDay();
   const timeStr = `${String(sessionDate.getHours()).padStart(2, "0")}:${String(sessionDate.getMinutes()).padStart(2, "0")}`;
 
@@ -80,39 +93,44 @@ export async function POST(req: NextRequest) {
   const fee = supervisorProfile.supervisionFee || 1800;
   const platformFee = calculatePlatformFee(fee);
 
-  const supervisionSession = await prisma.supervisionSession.create({
-    data: {
-      superviseeId: session.user.id,
-      supervisorId,
-      scheduledAt: sessionDate,
-      duration,
-      modality,
-      sessionType: "INDIVIDUAL",
-      status: "PENDING", // Will become CONFIRMED after payment
-      amountCharged: fee,
-      platformFee,
-      casePresented: caseContext || null,
-    },
-  });
+  // Session create + notifications are atomic — a notification failure
+  // won't leave a dangling session with no record on either side.
+  const supervisionSession = await prisma.$transaction(async (tx) => {
+    const created = await tx.supervisionSession.create({
+      data: {
+        superviseeId: session.user.id,
+        supervisorId,
+        scheduledAt: sessionDate,
+        duration: parsedDuration,
+        modality,
+        sessionType: "INDIVIDUAL",
+        status: "PENDING",
+        amountCharged: fee,
+        platformFee,
+        casePresented: caseContext || null,
+      },
+    });
 
-  // Create notifications
-  await prisma.notification.createMany({
-    data: [
-      {
-        userId: supervisorId,
-        type: "BOOKING_CONFIRMED",
-        title: "New supervision booking",
-        body: `You have a new supervision session request for ${sessionDate.toLocaleDateString("en-IN")}`,
-        link: `/supervision/sessions/${supervisionSession.id}`,
-      },
-      {
-        userId: session.user.id,
-        type: "BOOKING_CONFIRMED",
-        title: "Booking submitted",
-        body: `Your supervision session is pending confirmation`,
-        link: `/supervision/sessions/${supervisionSession.id}`,
-      },
-    ],
+    await tx.notification.createMany({
+      data: [
+        {
+          userId: supervisorId,
+          type: "BOOKING_CONFIRMED",
+          title: "New supervision booking",
+          body: `You have a new supervision session request for ${sessionDate.toLocaleDateString("en-IN")}`,
+          link: `/supervision/sessions/${created.id}`,
+        },
+        {
+          userId: session.user.id,
+          type: "BOOKING_CONFIRMED",
+          title: "Booking submitted",
+          body: `Your supervision session is pending confirmation`,
+          link: `/supervision/sessions/${created.id}`,
+        },
+      ],
+    });
+
+    return created;
   });
 
   return NextResponse.json(supervisionSession, { status: 201 });

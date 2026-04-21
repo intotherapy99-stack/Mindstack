@@ -3,8 +3,12 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createPaymentForCompletedAppointment } from "@/lib/billing";
 import { auditLog } from "@/lib/audit";
+import { mutationRateLimit, apiRateLimit } from "@/lib/rate-limit";
 
 export async function GET(req: NextRequest) {
+  const limited = apiRateLimit(req);
+  if (limited) return limited;
+
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -30,6 +34,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = mutationRateLimit(req);
+  if (limited) return limited;
+
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
